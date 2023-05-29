@@ -1,10 +1,4 @@
-This repository contains the code and models for our paper:
-
-**What Can Transformers Learn In-Context? A Case Study of Simple Function Classes** <br>
-*Shivam Garg\*, Dimitris Tsipras\*, Percy Liang, Gregory Valiant* <br>
-Paper: http://arxiv.org/abs/2208.01066 <br><br>
-
-![](setting.jpg)
+Code adapted from "What Can Transformers Learn In-Context? A Case Study of Simple Function Classes" by Shivam Garg, Dimitris Tsipras, Percy Liang, and Gregory Valiant
 
 ```bibtex
     @InProceedings{garg2022what,
@@ -15,7 +9,7 @@ Paper: http://arxiv.org/abs/2208.01066 <br><br>
     }
 ```
 
-## Getting started
+## Getting Started: Carry over notes (Delete later)
 You can start by cloning our repository and following the steps below.
 
 1. Install the dependencies for our code using Conda. You may need to adjust the environment YAML file depending on your setup.
@@ -38,7 +32,3 @@ That's it! You can now explore our pre-trained models or train your own. The key
 are as follows (starting from `src`):
 - The `eval.ipynb` notebook contains code to load our own pre-trained models, plot the pre-computed metrics, and evaluate them on new data.
 - `train.py` takes as argument a configuration yaml from `conf` and trains the corresponding model. You can try `python train.py --config conf/toy.yaml` for a quick training run.
-
-# Maintainers
-* [Shivam Garg](https://cs.stanford.edu/~shivamg/)
-* [Dimitris Tsipras](https://dtsipras.com/)
