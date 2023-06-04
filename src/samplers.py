@@ -38,6 +38,7 @@ class GaussianSampler(DataSampler):
         super().__init__(n_dims)
         self.bias = bias
         self.scale = scale
+        print('GaussianSampler (input vecs) init with scale ', self.scale, ' and bias ', self.bias )
 
     def sample_xs(self, n_points, b_size, n_dims_truncated=None, seeds=None):
         if seeds is None:
@@ -50,7 +51,29 @@ class GaussianSampler(DataSampler):
                 generator.manual_seed(seed)
                 xs_b[i] = torch.randn(n_points, self.n_dims, generator=generator)
         if self.scale is not None:
-            xs_b = xs_b @ self.scale
+            # xs_b = xs_b @ self.scale
+            xs_b = xs_b * self.scale
+        if self.bias is not None:
+            xs_b += self.bias
+        if n_dims_truncated is not None:
+            xs_b[:, :, n_dims_truncated:] = 0
+        return xs_b
+
+    def sample_query_scale_xs(self, n_points, b_size, n_dims_truncated=None, seeds=None):
+        if seeds is None:
+            xs_b = torch.randn(b_size, n_points, self.n_dims)
+        else:
+            xs_b = torch.zeros(b_size, n_points, self.n_dims)
+            generator = torch.Generator()
+            assert len(seeds) == b_size
+            for i, seed in enumerate(seeds):
+                generator.manual_seed(seed)
+                xs_b[i] = torch.randn(n_points, self.n_dims, generator=generator)
+        if self.scale is not None:
+            # print(xs_b[:4, -3:, :4].size())
+            # print('pre scale: ', xs_b[:4, -3:, :4])
+            xs_b[:, -1:] = xs_b[:, -1:] * self.scale
+            # print('post scale: ', xs_b[:4, -3:, :4])
         if self.bias is not None:
             xs_b += self.bias
         if n_dims_truncated is not None:

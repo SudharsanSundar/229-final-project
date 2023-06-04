@@ -52,6 +52,8 @@ class Task:
 def get_task_sampler(
     task_name, n_dims, batch_size, pool_dict=None, num_tasks=None, **kwargs
 ):
+    # print(kwargs)
+
     task_names_to_classes = {
         "linear_regression": LinearRegression,
         "sparse_linear_regression": SparseLinearRegression,
@@ -74,10 +76,11 @@ def get_task_sampler(
 
 
 class LinearRegression(Task):
-    def __init__(self, n_dims, batch_size, pool_dict=None, seeds=None, scale=1):
+    def __init__(self, n_dims, batch_size, pool_dict=None, seeds=None, scale=1, bias=0):
         """scale: a constant by which to scale the randomly sampled weights."""
         super(LinearRegression, self).__init__(n_dims, batch_size, pool_dict, seeds)
         self.scale = scale
+        self.bias = bias
 
         if pool_dict is None and seeds is None:
             self.w_b = torch.randn(self.b_size, self.n_dims, 1)
@@ -95,7 +98,7 @@ class LinearRegression(Task):
 
     def evaluate(self, xs_b):
         w_b = self.w_b.to(xs_b.device)
-        ys_b = self.scale * (xs_b @ w_b)[:, :, 0]
+        ys_b = self.bias + self.scale * (xs_b @ w_b)[:, :, 0]
         return ys_b
 
     @staticmethod
