@@ -35,7 +35,7 @@ def sample_seeds(total_seeds, count):
     return seeds
 
 
-def train(model, args):
+def train(model, args, shift=None):
     optimizer = torch.optim.Adam(model.parameters(), lr=args.training.learning_rate)
     curriculum = Curriculum(args.training.curriculum)
 
@@ -51,7 +51,10 @@ def train(model, args):
 
     n_dims = model.n_dims
     bsize = args.training.batch_size
-    data_sampler = get_data_sampler(args.training.data, n_dims=n_dims)
+    if shift is not None:
+        data_sampler = get_data_sampler(args.training.data, n_dims=n_dims, **shift)
+    else:
+        data_sampler = get_data_sampler(args.training.data, n_dims=n_dims)
     task_sampler = get_task_sampler(
         args.training.task,
         n_dims,
@@ -61,7 +64,7 @@ def train(model, args):
     )
     pbar = tqdm(range(starting_step, args.training.train_steps))
 
-    num_training_examples = args.training.num_training_examples
+    num_training_examples = args.training.train_steps * bsize
 
     for i in pbar:
         data_sampler_args = {}

@@ -38,7 +38,7 @@ class GaussianSampler(DataSampler):
         super().__init__(n_dims)
         self.bias = bias
         self.scale = scale
-        print('GaussianSampler (input vecs) init with scale ', self.scale, ' and bias ', self.bias )
+        print('GaussianSampler (input vecs) init with scale ', self.scale, ' and bias/mean ', self.bias )
 
     def sample_xs(self, n_points, b_size, n_dims_truncated=None, seeds=None):
         if seeds is None:
@@ -51,7 +51,6 @@ class GaussianSampler(DataSampler):
                 generator.manual_seed(seed)
                 xs_b[i] = torch.randn(n_points, self.n_dims, generator=generator)
         if self.scale is not None:
-            # xs_b = xs_b @ self.scale
             xs_b = xs_b * self.scale
         if self.bias is not None:
             xs_b += self.bias

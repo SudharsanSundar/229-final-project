@@ -186,9 +186,10 @@ def run_scale_exp(scale_exp_list,
 
 
 scale_exps = create_scale_exps([0.0001, 0.001, 0.01, 0.1, '1:20'])
-# run_scale_exp(scale_exps)
-run_scale_exp(scale_exps, scale_only_query=True, save_figs=True, suffix='_only_query')
-run_scale_exp(scale_exps, scale_inputs=False, scale_functions=True, save_figs=True, suffix='_only_func')
+test_input = [{'scale': 10, 'bias': 15}]
+run_scale_exp(test_input)
+# run_scale_exp(scale_exps, scale_only_query=True)
+# run_scale_exp(scale_exps, scale_inputs=False, scale_functions=True)
 
 
 
