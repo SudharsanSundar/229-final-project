@@ -50,7 +50,7 @@ def create_scale_exps(scales):
             end = int(item.split(':')[1])
             for i in range(start, end, 1):
                 scale_exp_list.append({'scale': i})
-    print(scale_exp_list)
+    # print(scale_exp_list)
     return scale_exp_list
 
 
@@ -68,6 +68,10 @@ def run_scale_exp(scale_exp_list,
 
     if scale_only_query and not scale_inputs:
         print('ERROR: Indicated wanted to scale query but not to scale inputs. Exiting...')
+        exit
+
+    if save_figs and suffix == '':
+        print('ERROR: No save file suffix specified, so cannot save. Exiting...')
         exit
 
     if scale_only_query:
@@ -112,7 +116,7 @@ def run_scale_exp(scale_exp_list,
             xs = data_sampler.sample_query_scale_xs(b_size=batch_size, n_points=conf.training.curriculum.points.end)
         else:
             xs = data_sampler.sample_xs(b_size=batch_size, n_points=conf.training.curriculum.points.end)
-        # Shape: 64 (examples) by 41 (each example's input's output)
+        # Shape: 64 (example docs) by 41 (each example doc's x position input's output, since 40 IC examples per doc)
         ys = task.evaluate(xs)
 
         with torch.no_grad():
@@ -131,10 +135,17 @@ def run_scale_exp(scale_exp_list,
                 sum_abs_error += np.abs(ys_np[:, -1:][i] - pred_np[:, -1:][i])
             else:
                 sum_abs_error -= np.abs(ys_np[:, -1:][i] - pred_np[:, -1:][i])
-
         abs_sided_err.append(sum_abs_error)
-        output_norms.append(np.linalg.norm(pred_np[:, -1:]))
-        scale_wise_test_loss.append(loss.mean(axis=0)[-1:])
+
+        pred_norms = pred_np[:, -1:].mean()
+        output_norms.append(pred_norms)
+
+        loss_term = loss.mean(axis=0)[-1:]
+        # print(loss.mean(axis=0).shape)
+        print(loss_term)
+        loss_term = loss_term/(scale*20)
+        print(loss_term)
+        scale_wise_test_loss.append(loss_term)
 
         sparsity = conf.training.task_kwargs.sparsity if "sparsity" in conf.training.task_kwargs else None
         baseline = {
@@ -162,8 +173,6 @@ def run_scale_exp(scale_exp_list,
             plt.savefig('scale_vs_loss' + suffix + '.png')
         plt.show()
 
-
-    # simple_index = [i for i in range(len(exp_off_by))]
     if plot_scale_vs_sided_err:
         plt.plot(index_list, abs_sided_err)
         plt.title(title_stub + 'vs. absolute, sided error')
@@ -185,11 +194,84 @@ def run_scale_exp(scale_exp_list,
     print("Output norms: ", output_norms)
 
 
-scale_exps = create_scale_exps([0.0001, 0.001, 0.01, 0.1, '1:20'])
+def run_function_sweep(max_scale, scale_examples=False, save_fig=False):
+    data_sampler = get_data_sampler(conf.training.data, n_dims)
+
+    task_sampler = get_task_sampler(
+        conf.training.task,
+        n_dims,
+        1)
+
+    task = task_sampler()
+
+    xs = data_sampler.sample_xs(b_size=1, n_points=41)
+    print('XS', xs.numpy().shape, xs)
+    pred = []
+    actual = []
+
+    for i in range(max_scale):
+        test_xs = xs
+        if scale_examples:
+            test_xs *= (i+1)
+        test_xs[:, -1:, :] = torch.ones(20)*(i+1)
+
+        #DELETE
+        test_xs *= 0
+
+        all_ys = task.evaluate(test_xs)
+        # print(xs[-2:])
+        with torch.no_grad():
+            all_pred = model(test_xs, all_ys)
+
+        print('test XS', test_xs.numpy().shape, test_xs)
+        print('PRED ', all_pred.numpy().shape, all_pred)
+        print('YS ', all_ys.numpy().shape, all_ys)
+
+        pred.append(all_pred[:, -1:])
+        actual.append(all_ys[:, -1:])
+
+    simple_index = [i+1 for i in range(max_scale)]
+    fig, ax = plt.subplots()
+    ax.plot(simple_index, actual, label='Ground truth output')
+    ax.plot(simple_index, pred, label='Predicted output')
+    if scale_examples:
+        ax.set_title('Function Sweep: fixed IC examples and function vector; scaled examples and query)')
+        ax.set_xlabel('Scaling factor (query is scaled ones vector)')
+    else:
+        ax.set_title('Function Sweep: fixed ID IC examples and function vector; scaled query)')
+        ax.set_xlabel('Query scaling factor (scaled ones vector)')
+
+    ax.set_ylabel('Output value')
+    ax.legend()
+
+    if save_fig:
+        plt.savefig('function_sweep_IC_scaled_2')
+
+    plt.show()
+
+
+scale_exps = create_scale_exps([0.0001, 0.001, 0.01, 0.1, '1:12'])
 test_input = [{'scale': 10, 'bias': 15}]
-run_scale_exp(test_input)
-# run_scale_exp(scale_exps, scale_only_query=True)
-# run_scale_exp(scale_exps, scale_inputs=False, scale_functions=True)
+
+# run_function_sweep(20, scale_examples=True, save_fig=True)
+
+run_scale_exp(scale_exps)
+# run_scale_exp(scale_exps, save_figs=True, suffix='_normed')
+# run_scale_exp(scale_exps, scale_only_query=True, save_figs=True)
+# run_scale_exp(scale_exps, scale_inputs=False, scale_functions=True, save_figs=True)
+
+
+
+
+# LOSS TESTING
+#
+# dummy_pred = np.ones(20) * 0.5
+# for i in range(20):
+#     # print((np.zeros(64) - np.ones(64)*(i+1)).mean(axis=0))
+#     dummy_loss = (np.zeros(64) - np.ones(64)*(i+1)).mean(axis=0) / ((i+1))
+#     print(dummy_loss)
+
+
 
 
 
