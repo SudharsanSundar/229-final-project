@@ -29,12 +29,11 @@ pt_path = os.path.join(run_dir, task, pt_id)
 ft_id = "finetuned"
 ft_path = os.path.join(run_dir, task, ft_id)
 
-
 model, _ = get_model_from_run(pt_path)
 _, conf_ft = get_model_from_run(ft_path, only_conf=True)
 
 print("Model: ", pt_path)
-print(conf_ft)
+print("FT config: ")
 for elem in conf_ft:
     print(elem)
 
@@ -57,7 +56,7 @@ with open(os.path.join(out_dir, "config.yaml"), "w") as yaml_file:
 
 
 # Conduct training
-# model.cuda()
+model.cuda()
 model.train()
 train(model, conf_ft, shift=conf_ft.training.input_kwargs)
 

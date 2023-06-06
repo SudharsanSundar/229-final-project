@@ -6,6 +6,7 @@ from quinine import QuinineArgumentParser
 from tqdm import tqdm
 import torch
 import yaml
+import numpy as np
 
 from eval import get_run_metrics
 from tasks import get_task_sampler
@@ -38,6 +39,8 @@ def sample_seeds(total_seeds, count):
 def train(model, args, shift=None):
     optimizer = torch.optim.Adam(model.parameters(), lr=args.training.learning_rate)
     curriculum = Curriculum(args.training.curriculum)
+    loss_series = []
+    # Update loss_series with previous values if already saved
 
     starting_step = 0
     state_path = os.path.join(args.out_dir, "state.pt")
@@ -88,8 +91,10 @@ def train(model, args, shift=None):
         ys = task.evaluate(xs)
 
         loss_func = task.get_training_metric()
-
         loss, output = train_step(model, xs.cuda(), ys.cuda(), optimizer, loss_func)
+        loss_series.append(loss)
+        loss_series_np = np.array(loss_series)
+        np.save('loss_series_each_step', loss_series_np)
 
         point_wise_tags = list(range(curriculum.n_points))
         point_wise_loss_func = task.get_metric()
