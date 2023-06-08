@@ -108,19 +108,19 @@ def train(model, args, shift=None):
             / curriculum.n_points
         )
 
-        if i % args.wandb.log_every_steps == 0 and not args.test_run:
-            wandb.log(
-                {
-                    "overall_loss": loss,
-                    "excess_loss": loss / baseline_loss,
-                    "pointwise/loss": dict(
-                        zip(point_wise_tags, point_wise_loss.cpu().numpy())
-                    ),
-                    "n_points": curriculum.n_points,
-                    "n_dims": curriculum.n_dims_truncated,
-                },
-                step=i,
-            )
+        # if i % args.wandb.log_every_steps == 0 and not args.test_run:
+        #     wandb.log(
+        #         {
+        #             "overall_loss": loss,
+        #             "excess_loss": loss / baseline_loss,
+        #             "pointwise/loss": dict(
+        #                 zip(point_wise_tags, point_wise_loss.cpu().numpy())
+        #             ),
+        #             "n_points": curriculum.n_points,
+        #             "n_dims": curriculum.n_dims_truncated,
+        #         },
+        #         step=i,
+        #     )
 
         curriculum.update()
 
