@@ -124,7 +124,7 @@ def train(model, args, shift=None):
 
         curriculum.update()
 
-        pbar.set_description(f"loss {loss}")
+        pbar.set_description(f"LOSS {loss}")
         if i % args.training.save_every_steps == 0 and not args.test_run:
             training_state = {
                 "model_state_dict": model.state_dict(),

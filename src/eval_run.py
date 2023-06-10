@@ -23,7 +23,7 @@ print("Models available:\n", df)
 
 task = "linear_regression"
 
-run_id = "pretrained"  # if you train more models, replace with the run_id from the table above
+run_id = "finetuned"  # if you train more models, replace with the run_id from the table above
 
 run_path = os.path.join(run_dir, task, run_id)
 recompute_metrics = False
@@ -31,7 +31,7 @@ recompute_metrics = False
 if recompute_metrics:
     get_run_metrics(run_path)  # these are normally precomputed at the end of training
 
-model, conf = get_model_from_run(run_path)
+model, conf = get_model_from_run(run_path, step=5000)
 
 n_dims = conf.model.n_dims
 batch_size = conf.training.batch_size
@@ -137,13 +137,13 @@ def run_scale_exp(scale_exp_list,
                 sum_abs_error -= np.abs(ys_np[:, -1:][i] - pred_np[:, -1:][i])
         abs_sided_err.append(sum_abs_error)
 
-        pred_norms = pred_np[:, -1:].mean()
+        pred_norms = np.abs(pred_np[:, -1:].mean())
         output_norms.append(pred_norms)
 
         loss_term = loss.mean(axis=0)[-1:]
         # print(loss.mean(axis=0).shape)
         print(loss_term)
-        loss_term = loss_term/(scale*20)
+        # loss_term = loss_term/(scale*20)
         print(loss_term)
         scale_wise_test_loss.append(loss_term)
 
@@ -215,8 +215,7 @@ def run_function_sweep(max_scale, scale_examples=False, save_fig=False):
             test_xs *= (i+1)
         test_xs[:, -1:, :] = torch.ones(20)*(i+1)
 
-        #DELETE
-        test_xs *= 0
+        # test_xs *= 0
 
         all_ys = task.evaluate(test_xs)
         # print(xs[-2:])
@@ -250,12 +249,18 @@ def run_function_sweep(max_scale, scale_examples=False, save_fig=False):
     plt.show()
 
 
-scale_exps = create_scale_exps([0.0001, 0.001, 0.01, 0.1, '1:12'])
+# scale_exps = create_scale_exps([0.0001, 0.001, 0.01, 0.1, '1:18'])
+scale_exps = create_scale_exps(['1:20'])
 test_input = [{'scale': 10, 'bias': 15}]
 
-# run_function_sweep(20, scale_examples=True, save_fig=True)
+run_function_sweep(20, scale_examples=True)
 
-run_scale_exp(scale_exps)
+# ft_5k_10m_3v_losses = np.load('loss_series_each_step_5k_copy.npy')
+# index_5k = [i+1 for i in range(5181)]
+# plt.plot(index_5k, ft_5k_10m_3v_losses)
+# plt.show()
+
+# run_scale_exp(scale_exps)
 # run_scale_exp(scale_exps, save_figs=True, suffix='_normed')
 # run_scale_exp(scale_exps, scale_only_query=True, save_figs=True)
 # run_scale_exp(scale_exps, scale_inputs=False, scale_functions=True, save_figs=True)

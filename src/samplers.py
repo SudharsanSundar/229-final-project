@@ -41,6 +41,7 @@ class GaussianSampler(DataSampler):
         print('GaussianSampler (input vecs) init with scale ', self.scale, ' and bias/mean ', self.bias )
 
     def sample_xs(self, n_points, b_size, n_dims_truncated=None, seeds=None):
+        print('sampling xs with (scale, mean) of (', self.scale, ', ', self.bias, ')...')
         if seeds is None:
             xs_b = torch.randn(b_size, n_points, self.n_dims)
         else:
