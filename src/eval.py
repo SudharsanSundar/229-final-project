@@ -26,14 +26,14 @@ def get_model_from_run(run_path, step=-1, only_conf=False):
     if step == -1:
         state_path = os.path.join(run_path, "state.pt")
         # TODO: IMPORTANT CHANGE, UNDO BEFORE REAL TRAINING!!!
-        # state = torch.load(state_path)
-        state = torch.load(state_path, map_location="cpu")
+        state = torch.load(state_path)
+        # state = torch.load(state_path, map_location="cpu")
         model.load_state_dict(state["model_state_dict"])
     else:
         model_path = os.path.join(run_path, f"model_{step}.pt")
         # TODO: IMPORTANT CHANGE, UNDO BEFORE REAL TRAINING!!!
-        # state_dict = torch.load(model_path)
-        state_dict = torch.load(model_path, map_location="cpu")
+        state_dict = torch.load(model_path)
+        # state_dict = torch.load(model_path, map_location="cpu")
         model.load_state_dict(state_dict)
 
     return model, conf
