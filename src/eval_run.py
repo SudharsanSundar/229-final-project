@@ -16,31 +16,6 @@ from samplers import get_data_sampler
 from tasks import get_task_sampler
 
 
-run_dir = "../models"
-
-df = read_run_dir(run_dir)
-print("Models available:\n", df)
-
-task = "linear_regression"
-
-run_id = "finetuned"
-# run_id = "pretrained"
-
-run_path = os.path.join(run_dir, task, run_id)
-recompute_metrics = False
-
-if recompute_metrics:
-    get_run_metrics(run_path)  # these are normally precomputed at the end of training
-
-model, conf = get_model_from_run(run_path, step=10000)
-# model, conf = get_model_from_run(run_path)
-
-n_dims = conf.model.n_dims
-batch_size = conf.training.batch_size
-
-print("Model: ", run_path, "\nTask: linear regression\nTask dim: ", n_dims, "\nBatch size: ", batch_size, "\n")
-
-
 # Automates and simplifies creating scale experiment inputs
 def create_scale_exps(scales):
     scale_exp_list = []
@@ -67,13 +42,13 @@ def run_scale_exp(scale_exp_list,
                   plot_scale_vs_sided_err=True,
                   plot_scale_vs_norms=True,
                   save_figs=False,
-                  suffix=''):
+                  suffix=None):
 
     if scale_only_query and not scale_inputs:
         print('ERROR: Indicated wanted to scale query but not to scale inputs. Exiting...')
         exit
 
-    if save_figs and suffix == '':
+    if save_figs and suffix is None:
         print('ERROR: No save file suffix specified, so cannot save. Exiting...')
         exit
 
@@ -150,6 +125,12 @@ def run_scale_exp(scale_exp_list,
         print(loss_term)
         loss_term = loss_term/((scale**2)*20)
         print(loss_term)
+
+        naive_loss = (np.zeros([64, 1]) - ys_np[:, -1:])**2
+        naive_loss = naive_loss.mean()
+        naive_loss /= ((scale**2)*20)
+        print('0 guess loss, should be 1: ', naive_loss)
+
         scale_wise_test_loss.append(loss_term)
 
         sparsity = conf.training.task_kwargs.sparsity if "sparsity" in conf.training.task_kwargs else None
@@ -169,13 +150,22 @@ def run_scale_exp(scale_exp_list,
             plt.show()
 
     index_list = [elem['scale'] for elem in scale_exp_list]
+
+    if suffix is not None:
+        if scale_only_query:
+            suffix += '_scaled_query'
+        elif scale_functions:
+            raise NotImplementedError
+        else:
+            suffix += '_scaled_all'
+
     if plot_scale_vs_loss:
         plt.plot(index_list, scale_wise_test_loss)
         plt.title(title_stub + 'vs. Test loss')
         plt.xlabel('Scaling factor')
         plt.ylabel('Test loss (MSE)')
         if save_figs:
-            plt.savefig('scale_vs_loss' + suffix + '.png')
+            plt.savefig('scale_vs_loss_' + suffix + '.png')
         plt.show()
 
     if plot_scale_vs_sided_err:
@@ -184,16 +174,10 @@ def run_scale_exp(scale_exp_list,
         plt.xlabel('Scaling factor')
         plt.ylabel('Absolute total sided error')
         if save_figs:
-            plt.savefig('scale_vs_sided_err' + suffix + '.png')
+            plt.savefig('scale_vs_sided_err_' + suffix + '.png')
         plt.show()
 
     if plot_scale_vs_norms:
-        # plt.plot(index_list, output_norms)
-        # plt.plot(index_list, correct_norms)
-        # plt.title(title_stub + 'vs. prediction norms')
-        # plt.xlabel('Scaling factor')
-        # plt.ylabel('Mean prediction norm')
-
         fig, ax = plt.subplots()
         ax.plot(index_list, output_norms, label='Predicted output')
         ax.plot(index_list, correct_norms, label='Ground truth output')
@@ -203,13 +187,13 @@ def run_scale_exp(scale_exp_list,
         ax.legend()
 
         if save_figs:
-            plt.savefig('scale_vs_norm' + suffix + '.png')
+            plt.savefig('scale_vs_norm_' + suffix + '.png')
         plt.show()
 
     print("Output norms: ", output_norms)
 
 
-def run_function_sweep(max_scale, scale_examples=False, save_fig=False, suffix=None):
+def run_function_sweep(start, max_scale, scale_examples=False, save_fig=False, suffix=None):
     data_sampler = get_data_sampler(conf.training.data, n_dims)
 
     if save_fig and suffix is None:
@@ -226,69 +210,115 @@ def run_function_sweep(max_scale, scale_examples=False, save_fig=False, suffix=N
     xs = data_sampler.sample_xs(b_size=1, n_points=41)
     print('XS', xs.numpy().shape)
     pred = []
+    pred_scaled_ex = []
     actual = []
 
-    for i in range(max_scale):
-        test_xs = xs
-        if scale_examples:
-            test_xs *= ((i+1)/4)
-        test_xs[:, -1:, :] = torch.ones(20)*((i+1)/4)
-
-        # test_xs *= 0
+    for i in range(start, max_scale*4, 1):
+        test_xs = xs.detach()
+        if i > 0 and scale_examples:
+            test_xs *= (4 / i)
+        # print('example initial coord, normal: ', test_xs[0, 0, 0], ((i + 1) / 4))
+        test_xs[:, -1:, :] = torch.ones(20) * ((i + 1) / 4)
 
         all_ys = task.evaluate(test_xs)
-        # print(xs[-2:])
         with torch.no_grad():
             all_pred = model(test_xs, all_ys)
-
-        # print('test XS', test_xs.numpy().shape, test_xs)
-        # print('PRED ', all_pred.numpy().shape, all_pred)
-        # print('YS ', all_ys.numpy().shape, all_ys)
 
         pred.append(all_pred[:, -1:])
         actual.append(all_ys[:, -1:])
 
-    simple_index = [((i+1)/4) for i in range(max_scale)]
+        if scale_examples:
+            test_xs *= ((i+1)/4)
+            # print('example initial coord, scale: ', test_xs[0, 0, 0], ((i+1)/4))
+
+            test_xs[:, -1:, :] = torch.ones(20)*((i+1)/4)
+
+            all_ys_ex = task.evaluate(test_xs)
+            with torch.no_grad():
+                all_pred_ex = model(test_xs, all_ys_ex)
+
+            # print('test XS', test_xs.numpy().shape, test_xs)
+            # print('PRED ', all_pred.numpy().shape, all_pred)
+            # print('YS ', all_ys.numpy().shape, all_ys)
+
+            pred_scaled_ex.append(all_pred_ex[:, -1:])
+
+    simple_index = [((i+1)/4) for i in range(start, max_scale*4, 1)]
     fig, ax = plt.subplots()
     ax.plot(simple_index, actual, label='Ground truth output')
-    ax.plot(simple_index, pred, label='Predicted output')
+    ax.plot(simple_index, pred, label='Predicted output, query scaling')
     if scale_examples:
-        ax.set_title('Function Sweep: fixed IC examples and function vector; scaled examples and query)')
-        ax.set_xlabel('Scaling factor (query is scaled ones vector)')
-        suffix += '_scaled_examples'
-    else:
-        ax.set_title('Function sweep: fixed ID IC examples and function vector; scaled query)')
-        ax.set_xlabel('Query scaling factor (scaled ones vector)')
+        ax.plot(simple_index, pred_scaled_ex, label='Predicted output, query and example scaling')
+
+    ax.set_title('Function sweep: fixed examples/function, scaled inputs')
+    ax.set_xlabel('Scaling factor (query is scaled ones vector)')
+
+    if suffix is not None:
+        if scale_examples:
+            suffix += '_scaled_all'
+        else:
+            suffix += '_scaled_query'
 
     ax.set_ylabel('Output value')
-    ax.legend()
+    ax.legend(loc='best')
 
     if save_fig:
-        plt.savefig('function_sweep_IC_scaled'+suffix)
+        plt.savefig('function_sweep_'+suffix)
 
     plt.show()
 
 
-scale_exps = create_scale_exps([0.1, 0.5, '1:20'])
-# scale_exps = create_scale_exps(['1:20'])
-# test_input = [{'scale': 10, 'bias': 15}]
+# Model Setup
+run_dir = "../models"
 
-run_function_sweep(80, save_fig=True, suffix='_ft_high_res')
-run_function_sweep(80, scale_examples=True, save_fig=True, suffix='_ft_high_res')
+df = read_run_dir(run_dir)
+print("Models available:\n", df)
+
+task = "linear_regression"
+
+run_id = "finetuned"
+# run_id = "pretrained"
+
+run_path = os.path.join(run_dir, task, run_id)
+recompute_metrics = False
+
+if recompute_metrics:
+    get_run_metrics(run_path)  # these are normally precomputed at the end of training
+
+model, conf = get_model_from_run(run_path, step=10000)
+# model, conf = get_model_from_run(run_path)
+
+n_dims = conf.model.n_dims
+batch_size = conf.training.batch_size
+
+print("Model: ", run_path, "\nTask: linear regression\nTask dim: ", n_dims, "\nBatch size: ", batch_size, "\n")
+
+
+# Run function sweep
+# run_function_sweep(0, 20, save_fig=True, suffix='ft_high_res')
+# run_function_sweep(0, 20, scale_examples=True, save_fig=True, suffix='ft_high_res')
+for i in range(10):
+    run_function_sweep(0, 20)
+# run_function_sweep(0, 20, scale_examples=True)
+
 
 # Run scaling experiments
-run_scale_exp(scale_exps, save_figs=True, suffix='_ft_high_res')
-run_scale_exp(scale_exps, scale_only_query=True, save_figs=True, suffix='_ft_high_res')
-# run_scale_exp(scale_exps, save_figs=True, suffix='_normed')
-# run_scale_exp(scale_exps, scale_only_query=True, save_figs=True)
-# run_scale_exp(scale_exps, scale_inputs=False, scale_functions=True, save_figs=True)
+scale_exps = create_scale_exps([0.5, '1:20'])
+
+# run_scale_exp(scale_exps, save_figs=True, suffix='_ft_high_res')
+# run_scale_exp(scale_exps, scale_only_query=True, save_figs=True, suffix='_ft_high_res')
+# run_scale_exp(scale_exps)
+run_scale_exp(scale_exps, scale_only_query=True)
 
 
 # Plot losses from training
 # ft_5k_10m_3v_losses = np.load('loss_series_each_step_5k_copy.npy')
-# ft_10k_losses = np.load('ft_losses_10k_10_1_copy.npy')
-# index_5k = [i+1 for i in range(10067)]
-# plt.plot(index_5k, ft_10k_losses)
+# ft_10k_losses = np.load('ft_losses_10k_10_1_copy.npy') #10067
+# ft_10k_5_1_losses = np.load('loss_series_each_step_10k_5_1_copy.npy') #10049
+# ft_10k_5_1_cur_losses = np.load('loss_series_each_step_cur.npy') #10092
+# ft_10k_2p5_1_losses = np.load('loss_series_each_step_10k_2p5_1.npy') #10024
+# index_10k = [i+1 for i in range(10024)]
+# plt.plot(index_10k, ft_10k_2p5_1_losses)
 # plt.show()
 
 

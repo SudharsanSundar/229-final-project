@@ -33,7 +33,7 @@ model, _ = get_model_from_run(pt_path)
 _, conf_ft = get_model_from_run(ft_path, only_conf=True)
 
 print("Model: ", pt_path)
-print("FT config: ")
+print("FT config: ", conf_ft.training.input_kwargs)
 for elem in conf_ft:
     print(elem)
 
