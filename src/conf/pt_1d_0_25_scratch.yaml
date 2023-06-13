@@ -33,7 +33,7 @@ training:
   task_kwargs: {}
   input_kwargs:
     bias: 0
-    scale: 10
+    scale: 25
   train_steps: 100001
 wandb:
   entity: in-context
